@@ -1,6 +1,5 @@
 // src/pages/ChatPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Send, 
   RotateCcw, 
@@ -11,12 +10,12 @@ import {
   ChevronRight,
   Plus,
   Share2,
-  Info
+  Info,
+  Menu,
+  Loader2 // <-- Spinner icon
 } from 'lucide-react';
-import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-
 
 // Define message type
 interface Messages {
@@ -24,11 +23,12 @@ interface Messages {
   content: string;
 }
 
-// Chat history type
+// Chat history type now includes the full messages array
 interface ChatHistoryItem {
   id: string;
   title: string;
   preview: string;
+  messages: Messages[];
 }
 
 const ChatPage: React.FC = () => {
@@ -36,17 +36,19 @@ const ChatPage: React.FC = () => {
   const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-//   const [activeCard, setActiveCard] = useState<number>(0);
-  const [currentTab, setCurrentTab] = useState<string>("performance");
+  const [currentTab, setCurrentTab] = useState<string>('performance');
   
-  const [chatHistory] = useState<ChatHistoryItem[]>([
-    { id: '1', title: 'Generate a word cloud for...', preview: 'I need a word cloud visualization for customer feedback' },
-    { id: '2', title: 'Show me a bar chart of s...', preview: 'Show me a bar chart of sales data by region' },
-  ]);
+  // Load chat history from localStorage if available
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
+    const storedHistory = localStorage.getItem('chatHistory');
+    return storedHistory ? JSON.parse(storedHistory) : [];
+  });
+
+  // State for mobile sidebar visibility
+  const [isSidebarOpen, setSidebarOpen] = useState<boolean>(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
   
   // Autofocus input when component mounts
   useEffect(() => {
@@ -61,6 +63,11 @@ const ChatPage: React.FC = () => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Save chat history changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+  }, [chatHistory]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -113,10 +120,10 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  // When a history item is clicked, load its messages and close mobile sidebar if open
   const handleHistoryItemClick = (item: ChatHistoryItem) => {
-    // In a real app, you'd load the chat history here
-    setMessages([]);
-    handleSendMessage(item.preview);
+    setMessages(item.messages);
+    setSidebarOpen(false);
   };
   
   // Example questions to suggest to the user
@@ -168,13 +175,20 @@ const ChatPage: React.FC = () => {
     });
   };
 
-  const resetChat = () => {
+  // Save current conversation (if any) to history and reset chat
+  const handleNewChat = () => {
+    if (messages.length > 0) {
+      const firstUserMessage = messages.find(msg => msg.role === 'user')?.content || 'New Chat';
+      const newItem: ChatHistoryItem = {
+        id: Date.now().toString(),
+        title: firstUserMessage.length > 20 ? firstUserMessage.substring(0, 20) + '...' : firstUserMessage,
+        preview: messages[messages.length - 1].content.substring(0, 50),
+        messages: messages
+      };
+      setChatHistory(prev => [...prev, newItem]);
+    }
     setMessages([]);
     setError(null);
-  };
-
-  const handleNewChat = () => {
-    resetChat();
   };
 
   // Top navigation bar exactly matching screenshot
@@ -202,19 +216,17 @@ const ChatPage: React.FC = () => {
     </div>
   );
 
-  // Chat toolbar matching screenshot
+  // Chat toolbar matching screenshot plus a mobile toggle for chat history
   const ChatToolbar = () => (
     <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
       <div className="flex items-center space-x-2">
-        <Button variant="outline" size="sm" className="px-2 py-1 h-8">
-          <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <line x1="8" y1="12" x2="16" y2="12"/>
-            <line x1="12" y1="8" x2="12" y2="16"/>
-          </svg>
-        </Button>
-        
-        <Button variant="outline" size="sm" className="flex items-center h-8">
+        {/* Mobile sidebar toggle button (visible only on mobile) */}
+        <div className="md:hidden">
+          <Button variant="outline" size="sm" className="h-8" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
+          </Button>
+        </div>
+        <Button variant="outline" size="sm" className="flex items-center h-8" onClick={handleNewChat}>
           <Plus className="w-4 h-4 mr-1" />
           New chat
         </Button>
@@ -222,8 +234,8 @@ const ChatPage: React.FC = () => {
         <Button variant="outline" size="sm" className="flex items-center h-8">
           <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <line x1="3" y1="9" x2="21" y2="9"/>
-            <line x1="9" y1="21" x2="9" y2="9"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
           </svg>
           Saved charts
         </Button>
@@ -253,82 +265,106 @@ const ChatPage: React.FC = () => {
     </div>
   );
 
+  // Render content cards based on the current tab
   const renderCards = () => {
-    // Content cards matching the screenshot exactly
     const cards = [
       {
-        category: "performance",
-        icon: <svg className="w-5 h-5 text-purple-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/><path d="M12 17.5c-.55 0-1-.45-1-1v-4.5H7.5c-.55 0-1-.45-1-1s.45-1 1-1H12c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1z" fill="currentColor"/></svg>,
-        title: "Weekly Reports",
-        description: "Generate overall insights into campaign performance from 2024-11-25 to 2024-12-01. Find patterns that a marketer could have missed.",
-        onClick: () => handleQuickQuestion("Generate weekly performance insights for campaigns from Nov 25 to Dec 1, 2024")
+        category: 'performance',
+        icon: (
+          <svg className="w-5 h-5 text-purple-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
+            <path d="M12 17.5c-.55 0-1-.45-1-1v-4.5H7.5c-.55 0-1-.45-1-1s.45-1 1-1H12c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1z" fill="currentColor"/>
+          </svg>
+        ),
+        title: 'Weekly Reports',
+        description: 'Generate overall insights into campaign performance from 2024-11-25 to 2024-12-01. Find patterns that a marketer could have missed.',
+        onClick: () => handleQuickQuestion('Generate weekly performance insights for campaigns from Nov 25 to Dec 1, 2024')
       },
       {
-        category: "optimization",
-        icon: <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="currentColor"/><path d="M7 12h2v5H7v-5zm4-7h2v12h-2V5zm4 4h2v8h-2v-8z" fill="currentColor"/></svg>,
-        title: "Strategic Budget Allocation",
-        description: "How should an extra $1000 be distributed among campaigns to maximize performance from 2024-11-25 to 2024-12-01?",
-        onClick: () => handleQuickQuestion("How should an extra $1000 be distributed among campaigns to maximize performance from 2024-11-25 to 2024-12-01?")
+        category: 'optimization',
+        icon: (
+          <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="currentColor"/>
+            <path d="M7 12h2v5H7v-5zm4-7h2v12h-2V5zm4 4h2v8h-2v-8z" fill="currentColor"/>
+          </svg>
+        ),
+        title: 'Strategic Budget Allocation',
+        description: 'How should an extra $1000 be distributed among campaigns to maximize performance from 2024-11-25 to 2024-12-01?',
+        onClick: () => handleQuickQuestion('How should an extra $1000 be distributed among campaigns to maximize performance from 2024-11-25 to 2024-12-01?')
       },
       {
-        category: "assets",
-        icon: <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/><path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4z" fill="currentColor"/></svg>,
-        title: "Assets Comparative Performance",
-        description: "Which assets are performing better than others based on all available key metrics from 2024-11-25 to 2024-12-01?",
-        onClick: () => handleQuickQuestion("Which assets are performing better than others based on all available key metrics from 2024-11-25 to 2024-12-01?")
+        category: 'assets',
+        icon: (
+          <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
+            <path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4z" fill="currentColor"/>
+          </svg>
+        ),
+        title: 'Assets Comparative Performance',
+        description: 'Which assets are performing better than others based on all available key metrics from 2024-11-25 to 2024-12-01?',
+        onClick: () => handleQuickQuestion('Which assets are performing better than others based on all available key metrics from 2024-11-25 to 2024-12-01?')
       },
       {
-        category: "metrics",
-        icon: <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z" fill="currentColor"/></svg>,
-        title: "CTR Trends",
-        description: "Analyze the Click-Through Rate (CTR) trends across all campaigns. Which campaign showed the most improvement?",
-        onClick: () => handleQuickQuestion("Analyze the Click-Through Rate (CTR) trends across all campaigns. Which campaign showed the most improvement?")
+        category: 'metrics',
+        icon: (
+          <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z" fill="currentColor"/>
+          </svg>
+        ),
+        title: 'CTR Trends',
+        description: 'Analyze the Click-Through Rate (CTR) trends across all campaigns. Which campaign showed the most improvement?',
+        onClick: () => handleQuickQuestion('Analyze the Click-Through Rate (CTR) trends across all campaigns. Which campaign showed the most improvement?')
       }
     ];
 
-    if (currentTab === "performance") {
+    if (currentTab === 'performance') {
       return (
         <div className="grid grid-cols-2 gap-4">
-          {cards.filter(card => card.category === "performance" || card.category === "optimization").map((card, index) => (
-            <div key={index} className="bg-white border rounded-lg p-4 hover:shadow-md cursor-pointer" onClick={card.onClick}>
-              <div className="flex items-center mb-2">
-                {card.icon}
-                <h3 className="text-base font-semibold ml-2">{card.title}</h3>
+          {cards
+            .filter(card => card.category === 'performance' || card.category === 'optimization')
+            .map((card, index) => (
+              <div 
+                key={index} 
+                className="bg-white border rounded-lg p-4 hover:shadow-md cursor-pointer"
+                onClick={card.onClick}
+              >
+                <div className="flex items-center mb-2">
+                  {card.icon}
+                  <h3 className="text-base font-semibold ml-2">{card.title}</h3>
+                </div>
+                <p className="text-sm text-gray-600">{card.description}</p>
               </div>
-              <p className="text-sm text-gray-600">{card.description}</p>
-            </div>
-          ))}
+            ))
+          }
         </div>
       );
-    } else if (currentTab === "assets") {
+    } else if (currentTab === 'assets' || currentTab === 'metrics') {
       return (
         <div className="grid grid-cols-2 gap-4">
-          {cards.filter(card => card.category === "assets" || card.category === "metrics").map((card, index) => (
-            <div key={index} className="bg-white border rounded-lg p-4 hover:shadow-md cursor-pointer" onClick={card.onClick}>
-              <div className="flex items-center mb-2">
-                {card.icon}
-                <h3 className="text-base font-semibold ml-2">{card.title}</h3>
+          {cards
+            .filter(card => card.category === 'assets' || card.category === 'metrics')
+            .map((card, index) => (
+              <div 
+                key={index} 
+                className="bg-white border rounded-lg p-4 hover:shadow-md cursor-pointer"
+                onClick={card.onClick}
+              >
+                <div className="flex items-center mb-2">
+                  {card.icon}
+                  <h3 className="text-base font-semibold ml-2">{card.title}</h3>
+                </div>
+                <p className="text-sm text-gray-600">{card.description}</p>
               </div>
-              <p className="text-sm text-gray-600">{card.description}</p>
-            </div>
-          ))}
+            ))
+          }
         </div>
       );
     }
     
     return null;
   };
-  
-  const MessageSkeleton: React.FC = () => (
-    <div className="flex gap-3 mb-6">
-      <Skeleton className="h-8 w-8 rounded-full" />
-      <div className="space-y-2 flex-1">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-    </div>
-  );
+
+
 
   return (
     <div className="flex flex-col h-full">
@@ -336,9 +372,9 @@ const ChatPage: React.FC = () => {
       <TopNavBar />
       <ChatToolbar />
       
-      <div className="flex flex-1 overflow-auto">
-        {/* Left sidebar with chat history */}
-        <div className="w-56 border-r border-gray-200 bg-white flex flex-col">
+      <div className="flex flex-1 overflow-auto relative">
+        {/* Desktop sidebar with chat history (visible on md and up) */}
+        <div className="w-56 border-r border-gray-200 bg-white flex flex-col hidden md:flex">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center text-sm text-gray-500">
               <Clock className="h-4 w-4 mr-2" />
@@ -358,6 +394,31 @@ const ChatPage: React.FC = () => {
             ))}
           </div>
         </div>
+        
+        {/* Mobile sidebar overlay for chat history */}
+        {isSidebarOpen && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white p-4 md:hidden">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Chat History</h2>
+              <Button variant="outline" size="sm" onClick={() => setSidebarOpen(false)}>
+                <ChevronLeft className="w-4 h-4" />
+                Close
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {chatHistory.map(item => (
+                <div 
+                  key={item.id} 
+                  className="py-2 px-4 hover:bg-gray-100 cursor-pointer text-sm"
+                  onClick={() => handleHistoryItemClick(item)}
+                >
+                  <div className="font-medium truncate">{item.title}</div>
+                  <div className="text-gray-500 text-xs truncate">{item.preview}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Main chat area */}
         <div className="flex-1 flex flex-col bg-gray-50">
@@ -451,12 +512,24 @@ const ChatPage: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {isLoading && <MessageSkeleton />}
+              
+              {/* Loader (spinner) while waiting for AI response */}
+              {isLoading && (
+                <div className="mb-4">
+                  <div className="inline-block max-w-3xl rounded-lg p-3 bg-white border border-gray-200">
+                    <div className="flex items-center space-x-2 text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
                   Error: {error}
                   <div className="mt-2">
-                    <Button size="sm" variant="outline" onClick={resetChat}>
+                    <Button size="sm" variant="outline" onClick={handleNewChat}>
                       Start New Chat
                     </Button>
                   </div>
@@ -468,17 +541,10 @@ const ChatPage: React.FC = () => {
           
           {/* Bottom message area matching screenshot */}
           <div className="border-t border-gray-200 bg-white p-4">
-            {messages.length > 0 ? (
-              <div className="text-xs text-gray-500 mb-2 flex items-center">
-                <Info className="h-4 w-4 mr-1 text-blue-500" />
-                For best results, ask one question at a time. Start a new chat when you switch topics.
-              </div>
-            ) : (
-              <div className="text-xs text-gray-500 mb-2 flex items-center justify-center">
-                <Info className="h-4 w-4 mr-1 text-blue-500" />
-                For best results, ask one question at a time. Start a new chat when you switch topics.
-              </div>
-            )}
+            <div className="text-xs text-gray-500 mb-2 flex items-center">
+              <Info className="h-4 w-4 mr-1 text-blue-500" />
+              For best results, ask one question at a time. Start a new chat when you switch topics.
+            </div>
             
             <form onSubmit={handleSubmit} className="relative">
               <Input
@@ -494,7 +560,7 @@ const ChatPage: React.FC = () => {
                 size="sm" 
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-transparent hover:bg-gray-100 text-gray-600"
                 disabled={!input.trim() || isLoading}
-                variant={input.trim() ? "ghost" : "ghost"}
+                variant={input.trim() ? 'ghost' : 'ghost'}
               >
                 <Send className={`h-5 w-5 ${input.trim() ? 'text-blue-500' : 'text-gray-400'}`} />
               </Button>

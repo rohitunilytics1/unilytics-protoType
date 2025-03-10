@@ -22,7 +22,7 @@ const Navbar = () => {
           </div>
         </Link>
         
-        <div className="relative ml-6 hidden sm:block">
+        <div className="relative ml-14 hidden sm:block">
           <div className="flex items-center border rounded-md bg-white px-3 py-1 text-black">
             <Search className="h-4 w-4 text-black mr-2" />
             <Input
