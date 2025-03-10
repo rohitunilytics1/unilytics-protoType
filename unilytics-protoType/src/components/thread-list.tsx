@@ -4,9 +4,10 @@ import {
   ThreadListPrimitive,
 } from "@assistant-ui/react";
 import { ArchiveIcon, PlusIcon } from "lucide-react";
+import { Button } from "./ui/button";
+import { TooltipIconButton } from "./tooltip-icon-button";
 
-import { Button } from "@/components/ui/button";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+
 
 export const ThreadList: FC = () => {
   return (
