@@ -1,7 +1,7 @@
 // src/components/layout/MobileSidebar.tsx
 import { useState } from "react";
 
-import { Menu, X, Home, Database, FolderOpen, Settings } from "lucide-react";
+import { Menu, Home, Database, FolderOpen, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Button } from "./ui/button";
